@@ -250,7 +250,7 @@ def delete_for_today():
         """,
         job_config=bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("snapshot_date", "DATE", SNAPSHOT_DATE.isoformat())
+                bigquery.ScalarQueryParameter("snapshot_date", "STRING", SNAPSHOT_DATE.isoformat())
             ]
         ),
     ).result()
@@ -262,7 +262,7 @@ def delete_for_today():
         """,
         job_config=bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("report_date", "DATE", SNAPSHOT_DATE.isoformat())
+                bigquery.ScalarQueryParameter("report_date", "STRING", SNAPSHOT_DATE.isoformat())
             ]
         ),
     ).result()
@@ -278,8 +278,8 @@ def delete_for_today():
         """,
         job_config=bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("window_start", "DATE", window_start.isoformat()),
-                bigquery.ScalarQueryParameter("window_end", "DATE", window_end.isoformat()),
+                bigquery.ScalarQueryParameter("window_start", "STRING", window_start.isoformat()),
+                bigquery.ScalarQueryParameter("window_end", "STRING", window_end.isoformat()),
             ]
         ),
     ).result()
