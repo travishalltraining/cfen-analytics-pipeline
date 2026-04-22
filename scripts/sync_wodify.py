@@ -291,12 +291,20 @@ def insert_rows(table_name, rows):
         return
 
     table_ref = f"{PROJECT_ID}.{DATASET_ID}.{table_name}"
-    errors = BQ.insert_rows_json(table_ref, rows)
 
-    if errors:
-        raise RuntimeError(f"BigQuery insert failed for {table_name}: {errors}")
+    job_config = bigquery.LoadJobConfig(
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND
+    )
 
-    print(f"Inserted {len(rows)} rows into {table_name}.")
+    load_job = BQ.load_table_from_json(
+        rows,
+        table_ref,
+        job_config=job_config
+    )
+
+    load_job.result()
+
+    print(f"Loaded {len(rows)} rows into {table_name}.")
 
 
 def build_member_rows(clients):
