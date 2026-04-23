@@ -285,6 +285,19 @@ def delete_for_today():
     ).result()
 
 
+BQ.query(
+    f"""
+    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.memberships_snapshot`
+    WHERE snapshot_date = @snapshot_date
+    """,
+    job_config=bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("snapshot_date", "DATE", SNAPSHOT_DATE.isoformat())
+        ]
+    ),
+).result()
+
+
 def insert_rows(table_name, rows):
     if not rows:
         print(f"No rows to insert for {table_name}.")
@@ -392,6 +405,49 @@ def build_sign_in_rows(sign_ins):
     return rows
 
 
+def build_membership_rows(memberships):
+    synced_at = datetime.now(timezone.utc).isoformat()
+
+    rows = []
+
+    for membership in memberships:
+        payment_plan = membership.get("payment_plan") or {}
+        initial_payment_option = payment_plan.get("initial_payment_option") or {}
+        renewal_payment_option = payment_plan.get("renewal_payment_option") or {}
+
+        rows.append(
+            {
+                "snapshot_date": SNAPSHOT_DATE.isoformat(),
+                "membership_id": safe_int(membership.get("id")),
+                "client_id": safe_int(membership.get("client_id")),
+                "membership_name": membership.get("name"),
+                "membership_template_id": safe_int(membership.get("membership_template_id")),
+                "location": membership.get("location_of_sale"),
+                "start_date": parse_date(membership.get("start_date")),
+                "end_date": parse_date(membership.get("end_date")),
+                "expiration_date": parse_date(membership.get("expiration_date")),
+                "membership_type": membership.get("membership_type"),
+                "attendance_type": membership.get("attendance_type"),
+                "attendance_limit": safe_int(membership.get("attendance_limit")),
+                "attendance_limit_frequency": safe_int(membership.get("attendance_limit_frequency")),
+                "attendance_limit_type": membership.get("attendance_limit_type"),
+                "does_membership_expire": safe_bool(membership.get("does_membership_expire")),
+                "is_active": safe_bool(membership.get("is_active")),
+                "is_deleted": safe_bool(membership.get("is_deleted")),
+                "payment_plan_name": payment_plan.get("payment_plan_name"),
+                "payment_plan_auto_renew": safe_bool(payment_plan.get("is_auto_renew")),
+                "initial_payment_option_type": initial_payment_option.get("initial_payment_option_type"),
+                "initial_cost": float(initial_payment_option.get("initial_cost")) if initial_payment_option.get("initial_cost") not in [None, ""] else None,
+                "renewal_payment_option_type": renewal_payment_option.get("renewal_payment_option_type"),
+                "renewal_cost": float(renewal_payment_option.get("renewal_cost")) if renewal_payment_option.get("renewal_cost") not in [None, ""] else None,
+                "raw_json": json.dumps(membership),
+                "synced_at": synced_at,
+            }
+        )
+
+    return rows
+
+
 def build_daily_summary(clients, sign_ins):
     active_clients = [c for c in clients if is_active_client(c)]
 
@@ -454,9 +510,17 @@ def build_daily_summary(clients, sign_ins):
 
 def main():
     print("Pulling Wodify clients...")
-    clients = fetch_paged("/clients", page_size=100, max_pages=10)
-
+clients = fetch_paged("/clients", page_size=100, max_pages=10)
     print(f"Pulled {len(clients)} clients.")
+
+    print("Pulling Wodify memberships...")
+    memberships = fetch_paged(
+        "/memberships",
+        page_size=100,
+        max_pages=5,
+        extra_params={"sort": "desc_id"},
+    )
+    print(f"Pulled {len(memberships)} memberships.")
 
     print("Pulling Wodify class sign-ins...")
     sign_ins = fetch_paged(
@@ -465,6 +529,7 @@ def main():
         max_pages=5,
         extra_params={"sort": "desc_id"},
     )
+    print(f"Pulled {len(sign_ins)} sign-ins.")
 
     print(f"Pulled {len(sign_ins)} sign-ins.")
 
@@ -473,11 +538,13 @@ def main():
 
     print("Building rows...")
     member_rows = build_member_rows(clients)
+    membership_rows = build_membership_rows(memberships)
     sign_in_rows = build_sign_in_rows(sign_ins)
     daily_summary_rows = build_daily_summary(clients, sign_ins)
 
     print("Writing to BigQuery...")
     insert_rows("members_daily_snapshot", member_rows)
+    insert_rows("memberships_snapshot", membership_rows)
     insert_rows("class_sign_ins", sign_in_rows)
     insert_rows("daily_summary", daily_summary_rows)
 
