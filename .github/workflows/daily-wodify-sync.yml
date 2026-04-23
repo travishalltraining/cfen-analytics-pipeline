@@ -37,4 +37,4 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           WODIFY_API_KEY: ${{ secrets.WODIFY_API_KEY }}
         run: |
-          python scripts/sync_wodify.py
+          python scripts/sync_wodify_v2.py
