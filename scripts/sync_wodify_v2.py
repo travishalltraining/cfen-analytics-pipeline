@@ -114,6 +114,15 @@ def safe_bool(value):
     return None
 
 
+def safe_float(value):
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
 def parse_date(value):
     if not value:
         return None
@@ -242,6 +251,48 @@ def birthday_in_next_7_days(client):
     return False
 
 
+def build_membership_status_map(memberships):
+    membership_status = {}
+
+    for membership in memberships:
+        client_id = safe_int(membership.get("client_id"))
+        if client_id is None:
+            continue
+
+        is_active = safe_bool(membership.get("is_active"))
+        is_deleted = safe_bool(membership.get("is_deleted"))
+
+        payment_plan = membership.get("payment_plan") or {}
+        initial_payment_option = payment_plan.get("initial_payment_option") or {}
+        renewal_payment_option = payment_plan.get("renewal_payment_option") or {}
+
+        initial_cost = initial_payment_option.get("initial_cost")
+        renewal_cost = renewal_payment_option.get("renewal_cost")
+
+        is_paying = False
+        try:
+            if initial_cost not in [None, ""] and float(initial_cost) > 0:
+                is_paying = True
+            if renewal_cost not in [None, ""] and float(renewal_cost) > 0:
+                is_paying = True
+        except Exception:
+            pass
+
+        if client_id not in membership_status:
+            membership_status[client_id] = {
+                "membership_is_active": False,
+                "membership_is_paying": False,
+            }
+
+        if is_active is True and is_deleted is not True:
+            membership_status[client_id]["membership_is_active"] = True
+
+        if is_paying:
+            membership_status[client_id]["membership_is_paying"] = True
+
+    return membership_status
+
+
 def delete_for_today():
     BQ.query(
         f"""
@@ -318,18 +369,27 @@ def insert_rows(table_name, rows):
     print(f"Loaded {len(rows)} rows into {table_name}.")
 
 
-def build_member_rows(clients):
+def build_member_rows(clients, membership_status_map):
     synced_at = datetime.now(timezone.utc).isoformat()
     rows = []
 
     for client in clients:
         first_name = client.get("first_name")
         last_name = client.get("last_name")
+        client_id = safe_int(client.get("id"))
+
+        membership_status = membership_status_map.get(
+            client_id,
+            {
+                "membership_is_active": False,
+                "membership_is_paying": False,
+            }
+        )
 
         rows.append(
             {
                 "snapshot_date": SNAPSHOT_DATE.isoformat(),
-                "client_id": safe_int(client.get("id")),
+                "client_id": client_id,
                 "first_name": first_name,
                 "last_name": last_name,
                 "display_name": clean_display_name(first_name, last_name),
@@ -347,6 +407,8 @@ def build_member_rows(clients):
                 "current_weekstreak": safe_int(client.get("current_weekstreak")),
                 "highest_weekstreak": safe_int(client.get("highest_weekstreak")),
                 "is_at_risk": safe_bool(client.get("is_at_risk")),
+                "membership_is_active": membership_status["membership_is_active"],
+                "membership_is_paying": membership_status["membership_is_paying"],
                 "raw_json": json.dumps(client),
                 "synced_at": synced_at,
             }
@@ -386,9 +448,9 @@ def build_membership_rows(memberships):
                 "payment_plan_name": payment_plan.get("payment_plan_name"),
                 "payment_plan_auto_renew": safe_bool(payment_plan.get("is_auto_renew")),
                 "initial_payment_option_type": initial_payment_option.get("initial_payment_option_type"),
-                "initial_cost": float(initial_payment_option.get("initial_cost")) if initial_payment_option.get("initial_cost") not in [None, ""] else None,
+                "initial_cost": safe_float(initial_payment_option.get("initial_cost")),
                 "renewal_payment_option_type": renewal_payment_option.get("renewal_payment_option_type"),
-                "renewal_cost": float(renewal_payment_option.get("renewal_cost")) if renewal_payment_option.get("renewal_cost") not in [None, ""] else None,
+                "renewal_cost": safe_float(renewal_payment_option.get("renewal_cost")),
                 "raw_json": json.dumps(membership),
                 "synced_at": synced_at,
             }
@@ -443,8 +505,21 @@ def build_sign_in_rows(sign_ins):
     return rows
 
 
-def build_daily_summary(clients, sign_ins):
-    active_clients = [c for c in clients if is_active_client(c)]
+def build_daily_summary(clients, sign_ins, membership_status_map):
+    active_clients = []
+
+    for client in clients:
+        client_id = safe_int(client.get("id"))
+        membership_status = membership_status_map.get(
+            client_id,
+            {
+                "membership_is_active": False,
+                "membership_is_paying": False,
+            }
+        )
+
+        if is_active_client(client) and membership_status["membership_is_active"]:
+            active_clients.append(client)
 
     risk_7_to_14 = 0
     risk_15_to_29 = 0
@@ -530,10 +605,11 @@ def main():
     delete_for_today()
 
     print("Building rows...")
-    member_rows = build_member_rows(clients)
+    membership_status_map = build_membership_status_map(memberships)
+    member_rows = build_member_rows(clients, membership_status_map)
     membership_rows = build_membership_rows(memberships)
     sign_in_rows = build_sign_in_rows(sign_ins)
-    daily_summary_rows = build_daily_summary(clients, sign_ins)
+    daily_summary_rows = build_daily_summary(clients, sign_ins, membership_status_map)
 
     print("Writing to BigQuery...")
     insert_rows("members_daily_snapshot", member_rows)
