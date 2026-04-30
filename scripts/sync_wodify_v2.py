@@ -409,6 +409,7 @@ def build_member_rows(clients, membership_status_map):
                 "is_at_risk": safe_bool(client.get("is_at_risk")),
                 "membership_is_active": membership_status["membership_is_active"],
                 "membership_is_paying": membership_status["membership_is_paying"],
+                "membership_is_active_paying": membership_status["membership_is_active_paying"],
                 "raw_json": json.dumps(client),
                 "synced_at": synced_at,
             }
