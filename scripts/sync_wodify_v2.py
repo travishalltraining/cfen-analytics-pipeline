@@ -587,7 +587,7 @@ def main():
     memberships = fetch_paged(
         "/memberships",
         page_size=100,
-        max_pages=30,
+        max_pages=100,
         extra_params={"sort": "desc_id"},
     )
     print(f"Pulled {len(memberships)} memberships.")
