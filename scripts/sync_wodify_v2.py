@@ -409,7 +409,7 @@ def build_member_rows(clients, membership_status_map):
                 "date_of_birth": parse_date(client.get("date_of_birth")),
                 "member_since": parse_date(client.get("member_since")),
                 "last_attendance": parse_timestamp(client.get("last_attendance")),
-                "days_since_last_attendance": getDaysSinceLastAttendance = get_days_since_last_attendance(client),
+                "days_since_last_attendance": get_days_since_last_attendance(client),
                 "total_class_sign_ins": safe_int(client.get("total_class_sign_ins")),
                 "total_booking_sign_ins": safe_int(client.get("total_booking_sign_ins")),
                 "current_weekstreak": safe_int(client.get("current_weekstreak")),
