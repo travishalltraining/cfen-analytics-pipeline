@@ -379,14 +379,8 @@ def build_member_rows(clients, membership_status_map):
         last_name = client.get("last_name")
         client_id = safe_int(client.get("id"))
 
-        membership_status = membership_status_map.get(
-            client_id,
-            {
-                "membership_is_active": False,
-                "membership_is_paying": False,
-                "membership_is_active_paying": False,
-            }
-        )
+        # Use .get() with defaults to avoid KeyError if client has no membership
+        membership_status = membership_status_map.get(client_id, {})
 
         rows.append(
             {
@@ -512,14 +506,7 @@ def build_daily_summary(clients, sign_ins, membership_status_map):
 
     for client in clients:
         client_id = safe_int(client.get("id"))
-        membership_status = membership_status_map.get(
-            client_id,
-            {
-                "membership_is_active": False,
-                "membership_is_paying": False,
-                "membership_is_active_paying": False,
-            }
-        )
+        membership_status = membership_status_map.get(client_id, {})
 
         if is_active_client(client) and membership_status.get("membership_is_active", False):
             active_clients.append(client)
