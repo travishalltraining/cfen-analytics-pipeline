@@ -6,10 +6,10 @@ on:
       - 'financials/**.xlsx'
       - 'financials/**.xls'
   workflow_dispatch:
-    inputs:
-      filename:
-        description: 'P&L filename in financials/ folder'
-        required: false
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   upload-financials:
@@ -17,22 +17,23 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install openpyxl google-cloud-bigquery
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Find and upload P&L files
+      - name: Upload P&L files to BigQuery
         env:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
