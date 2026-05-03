@@ -80,7 +80,6 @@ def fetch_paged(path, page_size=100, max_pages=100, extra_params=None):
 
         payload = wodify_get(path, params=params)
         rows = normalize_array(payload)
-
         all_rows.extend(rows)
 
         if len(rows) < page_size:
@@ -128,7 +127,6 @@ def parse_date(value):
         return None
 
     text = str(value)
-
     if text.startswith("1900"):
         return None
 
@@ -146,7 +144,6 @@ def parse_timestamp(value):
         return None
 
     text = str(value)
-
     if text.startswith("1900"):
         return None
 
@@ -368,8 +365,8 @@ def insert_rows(table_name, rows):
         table_ref,
         job_config=job_config,
     )
-
     load_job.result()
+
     print(f"Loaded {len(rows)} rows into {table_name}.")
 
 
@@ -495,7 +492,7 @@ def build_sign_in_rows(sign_ins):
                 "class_name": sign_in.get("class"),
                 "program": sign_in.get("program"),
                 "membership": sign_in.get("membership"),
-                "location": signInLocation if (signInLocation := sign_in.get("location")) is not None else None,
+                "location": sign_in.get("location"),
                 "sign_in_source": sign_in.get("sign_in_source"),
                 "sign_in_date_time": parse_timestamp(sign_in.get("sign_in_date_time")),
                 "local_class_start_datetime": sign_in.get("local_class_start_datetime"),
