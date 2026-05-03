@@ -383,6 +383,7 @@ def build_member_rows(clients, membership_status_map):
             {
                 "membership_is_active": False,
                 "membership_is_paying": False,
+                "membership_is_active_paying": False,
             }
         )
 
