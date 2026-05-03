@@ -160,7 +160,6 @@ def get_local_class_date(sign_in):
     raw = sign_in.get("local_class_start_datetime")
     if not raw:
         return None
-
     return str(raw)[:10]
 
 
@@ -231,7 +230,6 @@ def birthday_matches(client, target_date):
         return False
 
     bday = datetime.strptime(birthday, "%Y-%m-%d").date()
-
     return bday.month == target_date.month and bday.day == target_date.day
 
 
@@ -368,11 +366,10 @@ def insert_rows(table_name, rows):
     load_job = BQ.load_table_from_json(
         rows,
         table_ref,
-        job_config=job_config
+        job_config=job_config,
     )
 
     load_job.result()
-
     print(f"Loaded {len(rows)} rows into {table_name}.")
 
 
@@ -477,7 +474,6 @@ def build_sign_in_rows(sign_ins):
 
     for sign_in in sign_ins:
         class_date = get_local_class_date(sign_in)
-
         if not class_date:
             continue
 
@@ -499,7 +495,7 @@ def build_sign_in_rows(sign_ins):
                 "class_name": sign_in.get("class"),
                 "program": sign_in.get("program"),
                 "membership": sign_in.get("membership"),
-                "location": sign_in.get("location"),
+                "location": signInLocation if (signInLocation := sign_in.get("location")) is not None else None,
                 "sign_in_source": sign_in.get("sign_in_source"),
                 "sign_in_date_time": parse_timestamp(sign_in.get("sign_in_date_time")),
                 "local_class_start_datetime": sign_in.get("local_class_start_datetime"),
