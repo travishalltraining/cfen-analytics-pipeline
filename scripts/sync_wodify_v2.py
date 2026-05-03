@@ -65,7 +65,7 @@ def normalize_array(payload):
     return []
 
 
-def fetch_paged(path, page_size=100, max_pages=10, extra_params=None):
+def fetch_paged(path, page_size=100, max_pages=100, extra_params=None):
     if extra_params is None:
         extra_params = {}
 
@@ -278,17 +278,24 @@ def build_membership_status_map(memberships):
         except Exception:
             pass
 
+        is_current_active = is_active is True and is_deleted is not True
+        is_current_active_paying = is_current_active and is_paying
+
         if client_id not in membership_status:
             membership_status[client_id] = {
                 "membership_is_active": False,
                 "membership_is_paying": False,
+                "membership_is_active_paying": False,
             }
 
-        if is_active is True and is_deleted is not True:
+        if is_current_active:
             membership_status[client_id]["membership_is_active"] = True
 
         if is_paying:
             membership_status[client_id]["membership_is_paying"] = True
+
+        if is_current_active_paying:
+            membership_status[client_id]["membership_is_active_paying"] = True
 
     return membership_status
 
@@ -402,15 +409,15 @@ def build_member_rows(clients, membership_status_map):
                 "date_of_birth": parse_date(client.get("date_of_birth")),
                 "member_since": parse_date(client.get("member_since")),
                 "last_attendance": parse_timestamp(client.get("last_attendance")),
-                "days_since_last_attendance": get_days_since_last_attendance(client),
+                "days_since_last_attendance": getDaysSinceLastAttendance = get_days_since_last_attendance(client),
                 "total_class_sign_ins": safe_int(client.get("total_class_sign_ins")),
                 "total_booking_sign_ins": safe_int(client.get("total_booking_sign_ins")),
                 "current_weekstreak": safe_int(client.get("current_weekstreak")),
                 "highest_weekstreak": safe_int(client.get("highest_weekstreak")),
                 "is_at_risk": safe_bool(client.get("is_at_risk")),
-                "membership_is_active": membership_status["membership_is_active"],
-                "membership_is_paying": membership_status["membership_is_paying"],
-                "membership_is_active_paying": membership_status["membership_is_active_paying"],
+                "membership_is_active": membership_status.get("membership_is_active", False),
+                "membership_is_paying": membership_status.get("membership_is_paying", False),
+                "membership_is_active_paying": membership_status.get("membership_is_active_paying", False),
                 "raw_json": json.dumps(client),
                 "synced_at": synced_at,
             }
@@ -517,10 +524,11 @@ def build_daily_summary(clients, sign_ins, membership_status_map):
             {
                 "membership_is_active": False,
                 "membership_is_paying": False,
+                "membership_is_active_paying": False,
             }
         )
 
-        if is_active_client(client) and membership_status["membership_is_active"]:
+        if is_active_client(client) and membership_status.get("membership_is_active", False):
             active_clients.append(client)
 
     risk_7_to_14 = 0
