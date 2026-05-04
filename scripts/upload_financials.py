@@ -122,8 +122,15 @@ def parse_pnl(filepath):
         mn = m['name']
         # Parse month name and year
         parts = mn.split()
-        month_name = parts[0] if parts else mn
+        abbrev = parts[0] if parts else mn
         year_val = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 2026
+        # Always use full month names for consistency
+        month_map = {
+            'Jan':'January','Feb':'February','Mar':'March','Apr':'April',
+            'May':'May','Jun':'June','Jul':'July','Aug':'August',
+            'Sep':'September','Oct':'October','Nov':'November','Dec':'December'
+        }
+        month_name = month_map.get(abbrev, abbrev)
 
         rev = revenue.get(mn, 0)
         exp = abs(expenses.get(mn, 0)) if expenses else 0
