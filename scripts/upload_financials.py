@@ -123,7 +123,7 @@ def parse_pnl(filepath):
         # Parse month name and year
         parts = mn.split()
         abbrev = parts[0] if parts else mn
-        year_val = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 2026
+        year_val = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else int(os.environ.get('REPORT_YEAR', '2026'))
         # Always use full month names for consistency
         month_map = {
             'Jan':'January','Feb':'February','Mar':'March','Apr':'April',
