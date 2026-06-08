@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,24 +36,29 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Upload changed financial files
+      - name: Upload financial files
         run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'financials/*.xlsx' 'financials/*.xls' 2>/dev/null)
+          # Try to get changed files, fall back to all xlsx files in financials/
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'financials/' 2>/dev/null | grep -E '\.(xlsx|xls)$' || true)
+
           if [ -z "$CHANGED" ]; then
-            CHANGED=$(ls financials/*.xlsx financials/*.xls 2>/dev/null || echo "")
+            echo "No changed files detected via git diff, processing all files in financials/"
+            CHANGED=$(find financials/ -name "*.xlsx" -o -name "*.xls" 2>/dev/null || true)
           fi
 
           if [ -z "$CHANGED" ]; then
-            echo "No financial files found"
+            echo "No financial files found in financials/"
             exit 0
           fi
 
-          for file in $CHANGED; do
+          echo "Files to process:"
+          echo "$CHANGED"
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
             echo "Processing: $file"
             YEAR=$(echo "$file" | grep -oE '20[0-9]{2}' | head -1)
-            if [ -z "$YEAR" ]; then
-              YEAR="2026"
-            fi
-            echo "Detected year: $YEAR"
+            [ -z "$YEAR" ] && YEAR="2026"
+            echo "Year: $YEAR"
             REPORT_YEAR=$YEAR python scripts/upload_financials.py "$file"
-          done
+          done <<< "$CHANGED"
