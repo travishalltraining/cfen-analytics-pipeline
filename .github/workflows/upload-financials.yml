@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -25,7 +25,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install openpyxl pandas google-cloud-bigquery google-auth
+        run: pip install openpyxl google-cloud-bigquery
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -33,34 +33,19 @@ jobs:
           workload_identity_provider: '${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}'
           service_account: '${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}'
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
       - name: Upload financial files
         env:
           GCP_PROJECT_ID: '${{ secrets.GCP_PROJECT_ID }}'
         run: |
-          # Get changed files, fall back to all xlsx in financials/
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'financials/' 2>/dev/null | grep -E '\.(xlsx|xls)$' || true)
+          set -e
+          echo "Looking for xlsx files in financials/..."
+          ls -la financials/ || echo "financials/ folder not found"
 
-          if [ -z "$CHANGED" ]; then
-            echo "No changed files via git diff, scanning financials/ folder..."
-            CHANGED=$(find financials/ -maxdepth 1 \( -name "*.xlsx" -o -name "*.xls" \) 2>/dev/null || true)
-          fi
-
-          if [ -z "$CHANGED" ]; then
-            echo "No financial files found."
-            exit 0
-          fi
-
-          echo "Files to process:"
-          echo "$CHANGED"
-
-          while IFS= read -r file; do
-            [ -z "$file" ] && continue
-            echo "--- Processing: $file ---"
+          for file in financials/*.xlsx financials/*.xls; do
+            [ -f "$file" ] || continue
+            echo "Processing: $file"
             YEAR=$(echo "$file" | grep -oE '20[0-9]{2}' | head -1)
             [ -z "$YEAR" ] && YEAR="2026"
             echo "Year: $YEAR"
             REPORT_YEAR=$YEAR python scripts/upload_financials.py "$file"
-          done <<< "$CHANGED"
+          done
